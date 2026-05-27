@@ -1,0 +1,51 @@
+# 1. Define the CORS Middleware
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: global-cors
+  namespace: default
+spec:
+  headers:
+    accessControlAllowMethods:
+      - GET
+      - OPTIONS
+      - POST
+      - PUT
+      - DELETE
+    accessControlAllowHeaders:
+      - "*"
+    accessControlAllowOriginList:
+      - "*"
+    accessControlMaxAge: 100
+
+---
+# 2. Define an explicitly empty service so Traefik knows to return 503
+apiVersion: v1
+kind: Service
+metadata:
+  name: empty-fallback-service
+  namespace: default
+spec:
+  ports:
+    - port: 80 # The port doesn't matter, it has no selector and no endpoints
+
+---
+# 3. Define the Catch-All Router
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: catchall-router
+  namespace: default
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: PathPrefix(`/sessions/`)
+      kind: Rule
+      priority: 1 # Extremely low priority! Real session ingresses will override this.
+      middlewares:
+        - name: global-cors
+      services:
+        # Point to the empty service. Traefik will return 503 Service Unavailable + CORS!
+        - name: empty-fallback-service
+          port: 80
