@@ -1,17 +1,82 @@
+# =============================================================================
+# Traefik on k3s (teiwah-master) — Helm values
+# =============================================================================
+#
+# Context:
+#   - Coolify Traefik already owns host ports 80/443 (coolify + control apps).
+#   - Session traffic (SSE, messages) enters k3s Traefik on NodePort 30080 only.
+#   - Tunnel / Zuplo should target: http://127.0.0.1:30080
+#
+# Apply:
+#   helm upgrade traefik traefik/traefik -n kube-system -f values.yaml
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Kubernetes Service (the "svc" in kubectl get svc)
+# -----------------------------------------------------------------------------
+# Exposes the Traefik pod inside the cluster and on the node.
 service:
+  # NodePort = reachable on teiwah-master at a fixed high port (30080).
+  # NOT LoadBalancer — k3s servicelb would bind host 80/443 and fight Coolify.
   type: NodePort
 
+  annotations:
+    # Tell k3s ServiceLB (klipper) to leave this Service alone.
+    # Without this, k3s may treat it like a LoadBalancer and grab host 80/443.
+    svccontroller.k3s.cattle.io/skip_lb: "true"
+
+# -----------------------------------------------------------------------------
+# Traefik entrypoints (HTTP listeners)
+# -----------------------------------------------------------------------------
 ports:
   web:
+    # All three set to 30080 so kubectl shows 30080:30080/TCP — one number to
+    # remember. Functionally the same as 8000/80/30080; only naming differs.
+
+    # 1) Container port — Traefik process listens here INSIDE the pod.
+    port: 30080
+
+    # 2) Service port — port number on the Traefik Service object (ClusterIP).
+    #    Other pods reach Traefik at traefik.kube-system.svc:30080
+    exposedPort: 30080
+
+    # 3) NodePort — port on teiwah-master YOU curl from outside k3s:
+    #    curl http://127.0.0.1:30080/sessions/...
     nodePort: 30080
 
+  websecure:
+    # HTTPS entrypoint (443). Disabled — TLS terminates at Cloudflare / Coolify,
+    # not inside k3s. Tunnel → Traefik uses plain HTTP on localhost:30080.
+    expose:
+      default: false
+
+# -----------------------------------------------------------------------------
+# What Traefik watches for routing rules
+# -----------------------------------------------------------------------------
+providers:
+  # Standard Ingress resources (created by teiwah-control per session).
+  kubernetesIngress:
+    enabled: true
+  # Traefik CRDs: Middleware (strip-prefix), IngressRoute (catchall 503).
+  kubernetesCRD:
+    enabled: true
+
+# -----------------------------------------------------------------------------
+# Ingress class
+# -----------------------------------------------------------------------------
 ingressClass:
   enabled: true
+  # false = only Ingresses with ingressClassName: traefik are handled.
+  # teiwah-control must set that on each session Ingress (not default class).
   isDefaultClass: false
 
+# -----------------------------------------------------------------------------
+# Schedule Traefik on the master (where the tunnel exits)
+# -----------------------------------------------------------------------------
 nodeSelector:
   kubernetes.io/hostname: teiwah-master
 
+# Master is tainted CriticalAddonsOnly — allow Traefik to run there anyway.
 tolerations:
   - key: CriticalAddonsOnly
     operator: Exists
