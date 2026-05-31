@@ -17,14 +17,13 @@
 # -----------------------------------------------------------------------------
 # Exposes the Traefik pod inside the cluster and on the node.
 service:
-  # NodePort = reachable on teiwah-master at a fixed high port (30080).
-  # NOT LoadBalancer — k3s servicelb would bind host 80/443 and fight Coolify.
-  type: NodePort
-
   annotations:
     # Tell k3s ServiceLB (klipper) to leave this Service alone.
-    # Without this, k3s may treat it like a LoadBalancer and grab host 80/443.
     svccontroller.k3s.cattle.io/skip_lb: "true"
+
+  # Traefik Helm chart v3+ — type goes under spec, NOT service.type (ignored).
+  spec:
+    type: NodePort
 
 # -----------------------------------------------------------------------------
 # Traefik entrypoints (HTTP listeners)
