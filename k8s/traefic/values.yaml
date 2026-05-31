@@ -3,8 +3,9 @@
 # =============================================================================
 #
 # Context:
-#   - Coolify Traefik already owns host ports 80/443 (coolify + control apps).
-#   - Session traffic (SSE, messages) enters k3s Traefik on NodePort 30080 only.
+#   - Coolify runs its own Traefik (coolify-proxy) on host 80/443 — NOT this chart.
+#   - This chart is k3s ingress for session worker pods only (SSE, messages).
+#   - Ingress class name is traefik-k3s (not "traefik") to avoid confusion with Coolify.
 #   - Tunnel / Zuplo should target: http://127.0.0.1:30080
 #
 # Apply:
@@ -66,8 +67,9 @@ providers:
 # -----------------------------------------------------------------------------
 ingressClass:
   enabled: true
-  # false = only Ingresses with ingressClassName: traefik are handled.
-  # teiwah-control must set that on each session Ingress (not default class).
+  # Explicit name — k3s Traefik, distinct from Coolify's Traefik (coolify-proxy).
+  # teiwah-control sets ingressClassName: traefik-k3s on each session Ingress.
+  name: traefik-k3s
   isDefaultClass: false
 
 # -----------------------------------------------------------------------------
