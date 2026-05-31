@@ -1,0 +1,18 @@
+service:
+  type: NodePort
+
+ports:
+  web:
+    nodePort: 30080
+
+ingressClass:
+  enabled: true
+  isDefaultClass: false
+
+nodeSelector:
+  kubernetes.io/hostname: teiwah-master
+
+tolerations:
+  - key: CriticalAddonsOnly
+    operator: Exists
+    effect: NoExecute
