@@ -8,7 +8,9 @@
 #   make ghcr-secret                 — create/update GHCR pull secret (needs k8s/secrets/.env)
 #   make traefik                     — helm upgrade k3s Traefik
 #   make catchall                    — apply traefik 503 catchall
-#   make pods                        — watch session pods
+#   make pods                        — list pods now (wide)
+#   make pods-watch                  — kubectl -w (updates only on events)
+#   make pods-live                   — refresh every 2s (needs `watch` on PATH)
 #   make logs SESSION=id             — follow worker logs for one session
 
 NAMESPACE ?= default
@@ -20,7 +22,7 @@ WORKER_IMAGE ?= ghcr.io/roman-sh/teiwah-worker
 WORKER_TAG ?= amd64
 WORKER_PLATFORM ?= linux/amd64
 
-.PHONY: cleanup ghcr-secret traefik catchall pods logs sessions \
+.PHONY: cleanup ghcr-secret traefik catchall pods pods-watch pods-live logs sessions \
 	worker-build worker-push worker-publish worker-restart worker-restart-all
 
 cleanup:
@@ -38,7 +40,13 @@ catchall:
 	kubectl apply -f base/traefik-catchall.yaml
 
 pods:
-	kubectl get pods -n $(NAMESPACE) -w
+	kubectl get pods -n $(NAMESPACE) -o wide
+
+pods-watch:
+	kubectl get pods -n $(NAMESPACE) -o wide -w
+
+pods-live:
+	watch -n 2 kubectl get pods -n $(NAMESPACE) -o wide
 
 sessions:
 	kubectl get pods,ingress -n $(NAMESPACE)
