@@ -1,0 +1,63 @@
+# Overprovisioning placeholders — pre-reserved headroom so a new session schedules
+# instantly while the autoscaler boots a VM in the background.
+#
+# How it works:
+#   - pause pods hold capacity at priority -1 (below normal pods, above the autoscaler's
+#     expendable cutoff of -10, so the autoscaler STILL scales up for them).
+#   - a real session pod (default priority 0) PREEMPTS a placeholder immediately -> runs now.
+#   - the evicted placeholder goes Pending -> autoscaler provisions a node -> placeholder
+#     reschedules there -> buffer restored.
+#
+# Model: pre-warm a whole spare NODE. Each placeholder is sized to ~fill the smallest
+# preferred node (cx23 / cpx22 = 4 GB / 2 vCPU), so one placeholder effectively claims one
+# empty node. When real sessions arrive they preempt it, the placeholder goes Pending, and
+# the autoscaler boots a fresh node for it — so there is always ~1 idle node ahead of demand.
+#
+# replicas = how many spare nodes to keep warm (1 = one spare node, 2 = two, ...).
+# Sizes fit cx23/cpx22 (4 GB) with headroom for system pods; do NOT raise above the
+# smallest node's allocatable or the placeholder won't fit there and cheaper tiers get skipped.
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: overprovisioning
+value: -1
+globalDefault: false
+description: "Low-priority placeholder pods that real workloads preempt."
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: overprovisioning
+  namespace: kube-system
+  labels:
+    app: overprovisioning
+spec:
+  replicas: 1                       # spare nodes to keep warm (1 placeholder = 1 idle node)
+  selector:
+    matchLabels:
+      app: overprovisioning
+  template:
+    metadata:
+      labels:
+        app: overprovisioning
+    spec:
+      priorityClassName: overprovisioning
+      terminationGracePeriodSeconds: 0   # evict instantly when preempted
+      # Spread placeholders so each reserves room on a different node when possible.
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: overprovisioning
+      containers:
+        - name: pause
+          image: registry.k8s.io/pause:3.10
+          resources:
+            requests:
+              cpu: 1500m        # ~claims a 2 vCPU node (cx23/cpx22) leaving room for system pods
+              memory: 3Gi       # ~claims a 4 GB node; fits allocatable with headroom
+            limits:
+              memory: 3Gi

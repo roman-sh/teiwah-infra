@@ -1,0 +1,37 @@
+#cloud-config
+# Worker join for the teiwah-private k3s cluster.
+# Copy to worker-cloud-init.yaml and set K3S_URL + K3S_TOKEN (create-test-worker.sh does this via sed).
+# Used with: hcloud server create ... --network teiwah-private --user-data-from-file worker-cloud-init.yaml
+#
+# Get token on teiwah-master:
+#   cat /var/lib/rancher/k3s/server/node-token
+#
+# K3S_URL = https://10.0.0.2:6443  (master's teiwah-private IP — the address teiwah-worker uses)
+#
+# Flags (must match the existing master/worker config in /etc/rancher/k3s/config.yaml):
+#   --kubelet-arg=cloud-provider=external
+#       Lets the Hetzner Cloud Controller Manager (HCCM) assign a hcloud:// ProviderID on first
+#       registration. Required for Cluster Autoscaler to map the node back to its Hetzner server.
+#       Without it the node gets an immutable k3s://<name> that the autoscaler can't reconcile.
+#   --flannel-iface=enp7s0
+#       Routes pod-to-pod (VXLAN) traffic over teiwah-private instead of the public NIC.
+#   --node-ip=<private>
+#       Forces the kubelet to use the teiwah-private IP. Without it the kubelet self-assigns the
+#       public IP, then HCCM sets InternalIP to the private one — the mismatch breaks the kubelet
+#       serving-cert SANs (kubectl logs/exec and metrics-server fail TLS). The private IP is dynamic
+#       per node, so it is detected from enp7s0 at boot below.
+
+package_update: true
+runcmd:
+  - |
+    # Wait for the teiwah-private NIC (enp7s0) to receive its 10.x address via DHCP.
+    for i in $(seq 1 30); do
+      PRIV_IP=$(ip -o -4 addr show enp7s0 2>/dev/null | awk '{print $4}' | cut -d/ -f1)
+      [ -n "$PRIV_IP" ] && break
+      sleep 2
+    done
+    curl -sfL https://get.k3s.io | \
+      K3S_URL="https://REPLACE_MASTER_HOST:6443" \
+      K3S_TOKEN="REPLACE_NODE_TOKEN" \
+      INSTALL_K3S_EXEC="agent --kubelet-arg=cloud-provider=external --flannel-iface=enp7s0 --node-ip=${PRIV_IP}" \
+      sh -
