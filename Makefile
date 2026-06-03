@@ -8,6 +8,8 @@
 #   make ghcr-secret                 — create/update GHCR pull secret (needs k8s/secrets/.env)
 #   make traefik                     — helm upgrade k3s Traefik
 #   make catchall                    — apply traefik 503 catchall
+#   make monitoring                  — install/upgrade kube-prometheus-stack (agent → Grafana Cloud)
+#   make monitoring-status           — monitoring pods + agent log tail
 #   make pods                        — list pods now (wide)
 #   make pods-watch                  — kubectl -w (updates only on events)
 #   make pods-live                   — refresh every 2s (needs `watch` on PATH)
@@ -22,7 +24,8 @@ WORKER_IMAGE ?= ghcr.io/roman-sh/teiwah-worker
 WORKER_TAG ?= amd64
 WORKER_PLATFORM ?= linux/amd64
 
-.PHONY: cleanup ghcr-secret traefik catchall pods pods-watch pods-live logs sessions \
+.PHONY: cleanup ghcr-secret traefik catchall monitoring monitoring-status \
+	pods pods-watch pods-live logs sessions \
 	worker-build worker-push worker-publish worker-restart worker-restart-all
 
 cleanup:
@@ -38,6 +41,14 @@ traefik:
 
 catchall:
 	kubectl apply -f base/traefik-catchall.yaml
+
+monitoring:
+	bash k8s/monitoring/apply.sh
+
+monitoring-status:
+	kubectl -n monitoring get pods -o wide
+	kubectl -n monitoring logs --tail=30 -l app.kubernetes.io/name=prometheus-agent || \
+		kubectl -n monitoring logs --tail=30 -l app.kubernetes.io/name=prometheus || true
 
 pods:
 	kubectl get pods -n $(NAMESPACE) -o wide

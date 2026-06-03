@@ -1,0 +1,146 @@
+# kube-prometheus-stack values for teiwah — AGENT MODE → Grafana Cloud.
+#
+# Goal: cheap, low-footprint capacity-planning metrics (pod/node memory, restarts,
+# autoscaler timing) on small (4 GB) Hetzner nodes. Grafana Cloud is the ONLY store —
+# no local Prometheus TSDB, no local Grafana, no Alertmanager, no PVC.
+#
+# agentMode=true makes the operator render a PrometheusAgent CR (remote_write only,
+# no querying/rules locally). Dashboards + alerting live in Grafana Cloud.
+#
+# Apply with: bash apply.sh   (creates the grafana-cloud secret first)
+
+fullnameOverride: teiwah
+
+# --- Prometheus: agent mode, pinned to the control-plane, remote_write to Grafana Cloud ---
+prometheus:
+  agentMode: true
+  prometheusSpec:
+    # Identify this cluster's series in Grafana Cloud.
+    externalLabels:
+      cluster: teiwah
+      provider: hetzner
+    # 60s keeps active-series sample volume (and Grafana Cloud cost) low; plenty for
+    # capacity planning. Drop to 30s only if you need finer autoscaler timing.
+    scrapeInterval: 60s
+    scrapeTimeout: 30s
+
+    # Push everything to Grafana Cloud. Creds come from the `grafana-cloud` secret
+    # (see secret.env.example + apply.sh). NEVER inline the API key here.
+    remoteWrite:
+      - url: ${GRAFANA_CLOUD_PROM_URL}
+        basicAuth:
+          username:
+            name: grafana-cloud
+            key: username
+          password:
+            name: grafana-cloud
+            key: password
+
+    # Pick up ServiceMonitors/PodMonitors regardless of release label, so the
+    # cluster-autoscaler scrape (below) and future ones just work.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    probeSelectorNilUsesHelmValues: false
+    scrapeConfigSelectorNilUsesHelmValues: false
+
+    # Scrape the Hetzner cluster-autoscaler's own metrics (:8085) to answer
+    # "why is provisioning slow?" — cluster_autoscaler_unschedulable_pods_count,
+    # scale-up duration, node-group sizes.
+    additionalScrapeConfigs:
+      - job_name: cluster-autoscaler
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: [kube-system]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: cluster-autoscaler
+          - source_labels: [__address__]
+            action: replace
+            regex: (.+?)(?::\d+)?
+            replacement: $1:8085
+            target_label: __address__
+
+    # Keep the agent off paid session nodes and out of the autoscaler's way:
+    # run on the static control-plane like HCCM / cluster-autoscaler do.
+    nodeSelector:
+      node-role.kubernetes.io/control-plane: "true"
+    tolerations:
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+        effect: NoSchedule
+      - key: CriticalAddonsOnly
+        operator: Exists
+    resources:
+      requests:
+        cpu: 100m
+        memory: 200Mi
+      limits:
+        memory: 400Mi
+
+# --- Operator: also pin to the control-plane ---
+prometheusOperator:
+  nodeSelector:
+    node-role.kubernetes.io/control-plane: "true"
+  tolerations:
+    - key: node-role.kubernetes.io/control-plane
+      operator: Exists
+      effect: NoSchedule
+    - key: CriticalAddonsOnly
+      operator: Exists
+  resources:
+    requests:
+      cpu: 50m
+      memory: 100Mi
+    limits:
+      memory: 200Mi
+
+# --- kube-state-metrics: source of pod requests/limits, restarts, node allocatable ---
+kube-state-metrics:
+  nodeSelector:
+    node-role.kubernetes.io/control-plane: "true"
+  tolerations:
+    - key: node-role.kubernetes.io/control-plane
+      operator: Exists
+      effect: NoSchedule
+    - key: CriticalAddonsOnly
+      operator: Exists
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      memory: 128Mi
+
+# --- node-exporter: DaemonSet on EVERY node incl. autoscaled ones (node memory) ---
+prometheus-node-exporter:
+  # Tolerate all taints so it also lands on the control-plane and any tainted pools.
+  tolerations:
+    - operator: Exists
+  resources:
+    requests:
+      cpu: 10m
+      memory: 24Mi
+    limits:
+      memory: 48Mi
+
+# --- Disabled: Grafana Cloud handles UI + alerting; agent mode can't do rules ---
+grafana:
+  enabled: false
+alertmanager:
+  enabled: false
+defaultRules:
+  create: false
+
+# --- k3s gotcha: control-plane components are one embedded process, so these default
+# scrape jobs have no separate endpoints and would just error. We don't need them for
+# capacity planning. kubelet/cAdvisor (pod memory) works out of the box and stays on. ---
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false
+kubeEtcd:
+  enabled: false

@@ -125,6 +125,24 @@ make catchall          # apply 503 catchall if needed
 make traefik           # helm upgrade Traefik
 ```
 
+### Monitoring (metrics → Grafana Cloud)
+
+`kube-prometheus-stack` in **agent mode** remote-writes to Grafana Cloud (the store +
+dashboards + alerting). Low footprint for 4 GB nodes: no local Prometheus TSDB, no local
+Grafana, no PVC. Runs `node-exporter` (every node, incl. autoscaled) + `kube-state-metrics`
++ a Prometheus agent pinned to `teiwah-master`. Setup + capacity-planning queries:
+[k8s/monitoring/README.md](./k8s/monitoring/README.md).
+
+```bash
+cd ~/teiwah-infra/k8s/monitoring   # cp secret.env.example secret.env; fill Grafana Cloud creds
+make monitoring                    # install/upgrade
+make monitoring-status
+```
+
+Primary use: measure session working-set memory to right-size the `160Mi` request in
+`teiwah-control` (which drives autoscaling density), and scrape the cluster-autoscaler to
+see why provisioning is slow.
+
 ### Orphan k8s resources
 
 Session delete in DB does not always remove Ingress/Service/Middleware. Orphan example: Service + Ingress without Deployment.
@@ -150,6 +168,8 @@ make cleanup   # destructive — all session k8s resources
 | `make ghcr-secret` | GHCR pull secret in cluster |
 | `make traefik` | Helm upgrade Traefik |
 | `make catchall` | Apply 503 catchall |
+| `make monitoring` | Install/upgrade kube-prometheus-stack (agent → Grafana Cloud) |
+| `make monitoring-status` | Monitoring pods + agent log tail |
 | `make cleanup` | Delete all session k8s resources |
 
 ### Local k3d
