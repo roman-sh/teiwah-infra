@@ -11,8 +11,11 @@ ENV_FILE="${ROOT}/secret.env"
 NS=monitoring
 
 [[ -f "${ENV_FILE}" ]] || { echo "Missing ${ENV_FILE} (copy secret.env.example)" >&2; exit 1; }
+# Export so envsubst (a subprocess) sees the vars.
+set -a
 # shellcheck disable=SC1090
 source "${ENV_FILE}"
+set +a
 
 for var in GRAFANA_CLOUD_PROM_URL GRAFANA_CLOUD_USERNAME GRAFANA_CLOUD_API_KEY; do
   [[ -n "${!var:-}" ]] || { echo "Set ${var} in ${ENV_FILE}" >&2; exit 1; }

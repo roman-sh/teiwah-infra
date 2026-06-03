@@ -125,6 +125,16 @@ prometheus-node-exporter:
     limits:
       memory: 48Mi
 
+# --- kubelet / cAdvisor: source of per-pod memory (container_memory_working_set_bytes).
+# cAdvisor's housekeeping interval is variable, so honoring its timestamps drops samples
+# as "out-of-order" in agent mode. Use scrape time instead — accurate enough for capacity
+# planning and stops the drops. See helm-charts issue #5483. ---
+kubelet:
+  enabled: true
+  serviceMonitor:
+    honorTimestamps: false
+    trackTimestampsStaleness: false
+
 # --- Disabled: Grafana Cloud handles UI + alerting; agent mode can't do rules ---
 grafana:
   enabled: false
