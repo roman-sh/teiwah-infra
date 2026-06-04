@@ -24,9 +24,11 @@ prometheus:
     scrapeInterval: 60s
     scrapeTimeout: 30s
 
-    # Push everything to Grafana Cloud. Creds come from the `grafana-cloud` secret
-    # (see secret.env.example + apply.sh). NEVER inline the API key here.
+    # Dual-ship to Grafana Cloud AND Better Stack (eval period — compare UX, then drop
+    # one). Creds come from k8s secrets (see secret.env.example + apply.sh). NEVER
+    # inline tokens here.
     remoteWrite:
+      # --- Grafana Cloud (basicAuth: instance id + write token) ---
       - url: ${GRAFANA_CLOUD_PROM_URL}
         basicAuth:
           username:
@@ -41,9 +43,23 @@ prometheus:
         # scrape everything locally (agent) but remote_write only this short list,
         # keeping active series in the low hundreds. Add a name here if a future
         # panel/alert needs it.
+        writeRelabelConfigs: &teiwahMetricAllowlist
+          - sourceLabels: [__name__]
+            regex: "container_memory_working_set_bytes|kube_pod_container_resource_requests|kube_pod_container_resource_limits|kube_pod_container_status_restarts_total|kube_pod_container_status_last_terminated_reason|kube_pod_container_status_waiting_reason|kube_pod_status_phase|kube_pod_status_ready|kube_pod_status_scheduled|kube_pod_status_unschedulable|kube_pod_info|kube_node_status_allocatable|kube_node_status_condition|cluster_autoscaler_.+|up"
+            action: keep
+      # --- Better Stack (Bearer source token). Volume-billed with no active-series cap,
+      # but still keep an explicit allowlist so we stay comfortably inside the free tier.
+      # Includes the Teiwah dashboard/alert metrics plus a small node_exporter subset for
+      # basic host CPU/RAM/load views.
+      - url: ${BETTERSTACK_METRICS_URL}
+        authorization:
+          type: Bearer
+          credentials:
+            name: betterstack
+            key: token
         writeRelabelConfigs:
           - sourceLabels: [__name__]
-            regex: "container_memory_working_set_bytes|kube_pod_container_resource_requests|kube_pod_container_resource_limits|kube_pod_container_status_restarts_total|kube_pod_container_status_last_terminated_reason|kube_pod_info|kube_node_status_allocatable|kube_node_status_condition|cluster_autoscaler_.+|up"
+            regex: "node_cpu_seconds_total|node_memory_MemAvailable_bytes|node_memory_MemTotal_bytes|node_memory_MemFree_bytes|node_load1|node_load5|node_load15|node_boot_time_seconds|node_procs_running|node_procs_blocked|node_uname_info|container_memory_working_set_bytes|container_cpu_usage_seconds_total|kube_pod_container_resource_requests|kube_pod_container_resource_limits|kube_pod_container_status_restarts_total|kube_pod_container_status_last_terminated_reason|kube_pod_container_status_waiting_reason|kube_pod_status_phase|kube_pod_status_ready|kube_pod_status_scheduled|kube_pod_status_unschedulable|kube_pod_info|kube_node_status_allocatable|kube_node_status_condition|kube_deployment_status_replicas_ready|kube_deployment_status_replicas_unavailable|cluster_autoscaler_.+|session_server_.+|hcloud_.+|up"
             action: keep
 
     # Pick up ServiceMonitors/PodMonitors regardless of release label, so the

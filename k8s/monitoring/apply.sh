@@ -17,7 +17,8 @@ set -a
 source "${ENV_FILE}"
 set +a
 
-for var in GRAFANA_CLOUD_PROM_URL GRAFANA_CLOUD_USERNAME GRAFANA_CLOUD_API_KEY; do
+for var in GRAFANA_CLOUD_PROM_URL GRAFANA_CLOUD_USERNAME GRAFANA_CLOUD_API_KEY \
+           BETTERSTACK_METRICS_URL BETTERSTACK_SOURCE_TOKEN; do
   [[ -n "${!var:-}" ]] || { echo "Set ${var} in ${ENV_FILE}" >&2; exit 1; }
 done
 
@@ -32,6 +33,11 @@ kubectl -n "${NS}" create secret generic grafana-cloud \
   --from-literal=password="${GRAFANA_CLOUD_API_KEY}" \
   --dry-run=client -o yaml | kubectl apply -f -
 
+echo "Creating/updating secret betterstack (${NS})..."
+kubectl -n "${NS}" create secret generic betterstack \
+  --from-literal=token="${BETTERSTACK_SOURCE_TOKEN}" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
 echo "Adding/refreshing prometheus-community helm repo..."
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts >/dev/null 2>&1 || true
 helm repo update prometheus-community >/dev/null
@@ -40,7 +46,7 @@ helm repo update prometheus-community >/dev/null
 # relabel refs like $1 intact.
 RENDERED="$(mktemp)"
 trap 'rm -f "${RENDERED}"' EXIT
-envsubst '$GRAFANA_CLOUD_PROM_URL' < "${ROOT}/values.yaml" > "${RENDERED}"
+envsubst '$GRAFANA_CLOUD_PROM_URL $BETTERSTACK_METRICS_URL' < "${ROOT}/values.yaml" > "${RENDERED}"
 
 echo "helm upgrade --install kube-prometheus-stack (agent mode)..."
 helm upgrade --install teiwah-monitoring prometheus-community/kube-prometheus-stack \

@@ -93,15 +93,35 @@ cluster_autoscaler_nodes_count
 histogram_quantile(0.9, rate(cluster_autoscaler_function_duration_seconds_bucket{function="ScaleUp"}[15m]))
 ```
 
+**Sessions stuck Pending** — real session pods should not stay Pending; the
+`kube-system/overprovisioning` placeholders are expected to go Pending when they
+are preempted and should not page anyone:
+
+```promql
+kube_pod_status_phase{namespace="default", phase="Pending"} == 1
+
+kube_pod_status_phase{phase="Pending"} == 1
+  unless on(namespace, pod)
+    kube_pod_info{namespace="kube-system", pod=~"overprovisioning-.+"}
+```
+
+**Provisioning failure reasons** — distinguish autoscaler/capacity delay from
+image/config/container startup failures:
+
+```promql
+kube_pod_status_unschedulable{namespace="default"} == 1
+kube_pod_container_status_waiting_reason{namespace="default", reason=~"ImagePullBackOff|ErrImagePull|CreateContainerConfigError|CrashLoopBackOff"} == 1
+```
+
 ## Tuning / cost
 
 - **Sample volume:** `scrapeInterval: 60s` keeps Grafana Cloud active-series cost low. Drop
   to `30s` only if autoscaler timing needs finer resolution.
-- **Active-series allowlist (required for Grafana Cloud free tier):** the stock stack ships
-  tens of thousands of series (cAdvisor/ksm/node-exporter) and blows past Grafana Cloud's
-  ~10k free-tier cap. `remoteWrite[].writeRelabelConfigs` keeps only the metric names the
-  dashboard + alerts use, so we *scrape* everything locally but *ship* a few hundred series.
-  Add a metric name to that `keep` regex in `values.yaml` if a new panel/alert needs it.
+- **Remote-write allowlists:** Grafana Cloud gets only the metric names the custom Teiwah
+  dashboard + alerts use, because its free tier has an active-series cap. Better Stack gets
+  the same Teiwah metrics plus a small `node_exporter` subset for basic host CPU/RAM/load.
+  Avoid broad Kubernetes/control-plane ingest here; it can burn through Better Stack's
+  free metrics allowance quickly.
 - **Alerting/logs:** define alerts in Grafana Cloud (node down, OOMKill spike, autoscaler
   stuck). Logs (Loki/Better Stack) are a later stage — this stack is metrics-only by design.
 
