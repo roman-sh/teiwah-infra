@@ -97,8 +97,11 @@ histogram_quantile(0.9, rate(cluster_autoscaler_function_duration_seconds_bucket
 
 - **Sample volume:** `scrapeInterval: 60s` keeps Grafana Cloud active-series cost low. Drop
   to `30s` only if autoscaler timing needs finer resolution.
-- **Drop noisy series:** add `metricRelabelings` under `prometheus.prometheusSpec` to drop
-  high-cardinality metrics you don't query if you approach the free-tier series limit.
+- **Active-series allowlist (required for Grafana Cloud free tier):** the stock stack ships
+  tens of thousands of series (cAdvisor/ksm/node-exporter) and blows past Grafana Cloud's
+  ~10k free-tier cap. `remoteWrite[].writeRelabelConfigs` keeps only the metric names the
+  dashboard + alerts use, so we *scrape* everything locally but *ship* a few hundred series.
+  Add a metric name to that `keep` regex in `values.yaml` if a new panel/alert needs it.
 - **Alerting/logs:** define alerts in Grafana Cloud (node down, OOMKill spike, autoscaler
   stuck). Logs (Loki/Better Stack) are a later stage — this stack is metrics-only by design.
 

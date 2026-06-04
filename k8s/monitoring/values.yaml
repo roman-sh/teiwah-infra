@@ -35,6 +35,16 @@ prometheus:
           password:
             name: grafana-cloud
             key: password
+        # ALLOWLIST: only ship the metrics the dashboard + alerts actually use.
+        # A full kube-prometheus-stack emits tens of thousands of active series
+        # (cAdvisor/ksm/node-exporter); Grafana Cloud free tier caps at ~10k. We
+        # scrape everything locally (agent) but remote_write only this short list,
+        # keeping active series in the low hundreds. Add a name here if a future
+        # panel/alert needs it.
+        writeRelabelConfigs:
+          - sourceLabels: [__name__]
+            regex: "container_memory_working_set_bytes|kube_pod_container_resource_requests|kube_pod_container_resource_limits|kube_pod_container_status_restarts_total|kube_pod_container_status_last_terminated_reason|kube_pod_info|kube_node_status_allocatable|kube_node_status_condition|cluster_autoscaler_.+|up"
+            action: keep
 
     # Pick up ServiceMonitors/PodMonitors regardless of release label, so the
     # cluster-autoscaler scrape (below) and future ones just work.
