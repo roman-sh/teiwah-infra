@@ -2,7 +2,8 @@
 set -euo pipefail
 
 # Rollout-restart every session worker deployment that uses the GHCR worker image.
-# Run after `make worker-publish` so pods pull the new :amd64 digest.
+# Run after nestwaileys CI publishes a new :amd64 image. Requires imagePullPolicy: Always
+# on the deployment (set by teiwah-control) so the node re-pulls the tag.
 #
 # Usage (on teiwah-master):
 #   WORKER_IMAGE=ghcr.io/roman-sh/teiwah-worker bash scripts/worker-restart-all.sh
@@ -38,4 +39,4 @@ for deploy in $(kubectl get deployments -n "$NAMESPACE" -o jsonpath='{.items[*].
   esac
 done
 
-echo "Done. Baileys auth is ephemeral — sessions may need QR scan again."
+echo "Done. Auth on the session PVC survives same-node restarts; node moves need QR scan."
