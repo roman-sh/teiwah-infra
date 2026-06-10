@@ -4,7 +4,7 @@
 #   make worker-publish                    — build nestwaileys for linux/amd64, push to GHCR
 #   make worker-restart SESSION=id         — rollout restart one session (k3s)
 #   make worker-restart-all                — restart every deployment using WORKER_IMAGE
-#   make cleanup                   — delete all session worker k8s resources
+#   make cleanup                   — delete all session worker k8s resources (+ auth PVCs)
 #   make ghcr-secret                 — create/update GHCR pull secret (needs k8s/secrets/.env)
 #   make traefik                     — helm upgrade k3s Traefik
 #   make catchall                    — apply traefik 503 catchall
