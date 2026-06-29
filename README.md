@@ -146,6 +146,12 @@ Primary use: measure session working-set memory to right-size the `160Mi` reques
 `teiwah-control` (which drives autoscaling density), and scrape the cluster-autoscaler to
 see why provisioning is slow.
 
+### Ops panel (OliveTin)
+
+A clickable web UI for the Makefile targets (`sandbox-setup`, `cleanup`,
+`worker-restart-all`, …), running on `teiwah-master` behind Cloudflare Access at
+`infra.teiwah.cloud`. Setup + security model: [olivetin/README.md](./olivetin/README.md).
+
 ### Orphan k8s resources
 
 Session delete in DB does not always remove Ingress/Service/Middleware. Orphan example: Service + Ingress without Deployment.
