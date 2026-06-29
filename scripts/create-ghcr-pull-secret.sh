@@ -11,13 +11,18 @@ if [[ ! -f "$ENV_FILE" ]]; then
   exit 1
 fi
 
+# Caller-provided env (e.g. K8S_NAMESPACE=sandbox) must win over .env defaults,
+# since sourcing the file below would otherwise clobber it.
+_OVERRIDE_NS="${K8S_NAMESPACE:-}"
+_OVERRIDE_SECRET="${SECRET_NAME:-}"
+
 # shellcheck source=/dev/null
 source "$ENV_FILE"
 
 : "${GHCR_USERNAME:?Set GHCR_USERNAME in k8s/secrets/.env}"
 : "${GHCR_PAT:?Set GHCR_PAT in k8s/secrets/.env}"
-K8S_NAMESPACE="${K8S_NAMESPACE:-default}"
-SECRET_NAME="${SECRET_NAME:-ghcr-pull}"
+K8S_NAMESPACE="${_OVERRIDE_NS:-${K8S_NAMESPACE:-default}}"
+SECRET_NAME="${_OVERRIDE_SECRET:-${SECRET_NAME:-ghcr-pull}}"
 
 kubectl create secret docker-registry "$SECRET_NAME" \
   -n "$K8S_NAMESPACE" \

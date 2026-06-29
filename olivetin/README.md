@@ -28,8 +28,9 @@ It is **not** a replacement for k9s (which manages live pods/logs). This is for 
 
 ## Install on teiwah-master
 
-Assumes the repo is at `/root/teiwah-infra`. If it lives elsewhere, update the
-`make -C` paths in `config.yaml` and the kubeconfig path below.
+Assumes the repo is at `/root/teiwah-infra` and root's `~/.kube/config` resolves to
+the cluster (on k3s it's a symlink to `/etc/rancher/k3s/k3s.yaml`). If the repo
+lives elsewhere, update the `make -C` paths in `config.yaml`.
 
 ```bash
 # 1. Install OliveTin (Debian/Ubuntu .deb from the latest GitHub release).
@@ -41,7 +42,8 @@ Assumes the repo is at `/root/teiwah-infra`. If it lives elsewhere, update the
 # 2. Point OliveTin at the repo's config (so `git pull` updates the buttons).
 ln -sf /root/teiwah-infra/olivetin/config.yaml /etc/OliveTin/config.yaml
 
-# 3. Run it as root with the k3s kubeconfig (drop-in override).
+# 3. Run it as root (drop-in override). kubectl then uses root's ~/.kube/config
+#    (symlinked to the k3s kubeconfig) automatically.
 mkdir -p /etc/systemd/system/OliveTin.service.d
 cp /root/teiwah-infra/olivetin/olivetin.service.override.conf \
    /etc/systemd/system/OliveTin.service.d/override.conf

@@ -25,7 +25,7 @@ defaultOnClick: execution-dialog
 
 actions:
   - title: "List pods"
-    shell: "make -C /root/teiwah-infra pods NAMESPACE={{ namespace }}"
+    shell: "make --no-print-directory -C /root/teiwah-infra pods NAMESPACE={{ namespace }}"
     timeout: 60
     arguments:
       - name: namespace
@@ -37,7 +37,7 @@ actions:
             value: default
 
   - title: "Restart all workers"
-    shell: "make -C /root/teiwah-infra worker-restart-all NAMESPACE={{ namespace }}"
+    shell: "make --no-print-directory -C /root/teiwah-infra worker-restart-all NAMESPACE={{ namespace }}"
     timeout: 900
     arguments:
       - name: namespace
@@ -49,11 +49,11 @@ actions:
             value: default
 
   - title: "Sandbox setup (dev namespace + GHCR pull secret)"
-    shell: "make -C /root/teiwah-infra sandbox-setup"
+    shell: "make --no-print-directory -C /root/teiwah-infra sandbox-setup"
     timeout: 120
 
   - title: "Cleanup sessions (DESTRUCTIVE)"
-    shell: "make -C /root/teiwah-infra cleanup NS={{ namespace }}"
+    shell: "make --no-print-directory -C /root/teiwah-infra cleanup NS={{ namespace }}"
     timeout: 900
     arguments:
       - name: namespace
