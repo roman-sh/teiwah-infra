@@ -4,7 +4,9 @@
 #   make worker-publish                    — build nestwaileys for linux/amd64, push to GHCR
 #   make worker-restart SESSION=id         — rollout restart one session (k3s)
 #   make worker-restart-all                — restart every deployment using WORKER_IMAGE
-#   make cleanup                   — delete all session worker k8s resources (+ auth PVCs)
+#   make cleanup                   — delete session worker k8s resources in sandbox (dev)
+#   make cleanup NS=default        — same, but target the prod namespace
+#   make sandbox-setup             — create the sandbox (dev) namespace + its GHCR pull secret
 #   make ghcr-secret                 — create/update GHCR pull secret (needs k8s/secrets/.env)
 #   make traefik                     — helm upgrade k3s Traefik
 #   make catchall                    — apply traefik 503 catchall
@@ -16,6 +18,7 @@
 #   make logs SESSION=id             — follow worker logs for one session
 
 NAMESPACE ?= default
+NS ?=
 SESSION ?=
 
 # nestwaileys → GHCR (must match teiwah-control SESSION_WORKER_IMAGE)
@@ -24,12 +27,18 @@ WORKER_IMAGE ?= ghcr.io/roman-sh/teiwah-worker
 WORKER_TAG ?= amd64
 WORKER_PLATFORM ?= linux/amd64
 
-.PHONY: cleanup ghcr-secret traefik catchall monitoring monitoring-status \
+.PHONY: cleanup sandbox-setup ghcr-secret traefik catchall monitoring monitoring-status \
 	pods pods-watch pods-live logs sessions \
 	worker-build worker-push worker-publish worker-restart worker-restart-all
 
+# Defaults to sandbox (dev). `make cleanup NS=default` targets prod.
 cleanup:
-	bash scripts/cleanup-sessions.sh
+	bash scripts/cleanup-sessions.sh $(NS)
+
+# Create the dev namespace and its GHCR pull secret in one shot.
+sandbox-setup:
+	kubectl apply -f k8s/sandbox/namespace.yaml
+	K8S_NAMESPACE=sandbox bash scripts/create-ghcr-pull-secret.sh
 
 ghcr-secret:
 	bash scripts/create-ghcr-pull-secret.sh

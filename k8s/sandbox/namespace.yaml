@@ -1,0 +1,11 @@
+# Dev namespace on the shared cloud cluster. Prod stays in `default`.
+# Local control development (Dev Flow B) sets K8S_NAMESPACE=sandbox so it can
+# never create/delete prod session pods. Isolation here is by namespace
+# convention only (the dev kubeconfig is still cluster-admin); scoped RBAC is a
+# future hardening step.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sandbox
+  labels:
+    teiwah.cloud/env: dev

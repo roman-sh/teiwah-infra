@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Remove all session worker resources from k3s (default namespace), including
-# per-session local-path PVCs (<sessionId>-storage) that hold Baileys auth state.
+# Remove all session worker resources from a namespace, including per-session
+# local-path PVCs (<sessionId>-storage) that hold Baileys auth state.
 # Does NOT touch traefik-catchall (global-cors, catchall-router, empty-fallback-service).
-# Does NOT clear Supabase — run DELETE FROM "Session"; separately if needed.
+# Does NOT clear the DB — run DELETE FROM "Session"; separately if needed.
 #
-# Usage (on teiwah-master):
-#   ~/teiwah-infra/scripts/cleanup-sessions.sh
+# Defaults to the dev namespace (sandbox). Pass a namespace to target prod:
+#   scripts/cleanup-sessions.sh            # -> sandbox (dev)
+#   scripts/cleanup-sessions.sh default    # -> default (prod)
+#   NAMESPACE=default scripts/cleanup-sessions.sh
 
-NAMESPACE="${NAMESPACE:-default}"
+NAMESPACE="${1:-${NAMESPACE:-sandbox}}"
 
 echo "Searching for session resources in ${NAMESPACE}..."
 

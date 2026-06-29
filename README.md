@@ -116,10 +116,13 @@ ssh root@178.105.212.172
 cd ~/teiwah-infra
 ```
 
-**Namespace:** `default`
+**Namespaces:** `default` (prod) and `sandbox` (dev, local control development). Both
+share this cluster + Traefik; routing is path-based (`/sessions/<id>`, ids globally
+unique) so they never collide. First-time dev setup: `make sandbox-setup`.
 
 ```bash
-make pods
+make pods                       # prod (default)
+make pods NAMESPACE=sandbox     # dev
 make logs SESSION=<session-id>
 make catchall          # apply 503 catchall if needed
 make traefik           # helm upgrade Traefik
@@ -148,7 +151,8 @@ see why provisioning is slow.
 Session delete in DB does not always remove Ingress/Service/Middleware. Orphan example: Service + Ingress without Deployment.
 
 ```bash
-make cleanup   # destructive — all session k8s resources
+make cleanup              # destructive — all session k8s resources in sandbox (dev)
+make cleanup NS=default   # same, but target the prod namespace
 ```
 
 ---
@@ -166,11 +170,12 @@ make cleanup   # destructive — all session k8s resources
 | `make worker-restart SESSION=id` | Rollout restart one deployment |
 | `make worker-restart-all` | Restart all worker deployments |
 | `make ghcr-secret` | GHCR pull secret in cluster |
+| `make sandbox-setup` | Create the `sandbox` (dev) namespace + its GHCR pull secret |
 | `make traefik` | Helm upgrade Traefik |
 | `make catchall` | Apply 503 catchall |
 | `make monitoring` | Install/upgrade kube-prometheus-stack (agent → Grafana Cloud) |
 | `make monitoring-status` | Monitoring pods + agent log tail |
-| `make cleanup` | Delete all session k8s resources |
+| `make cleanup` | Delete session k8s resources in `sandbox` (dev); `NS=default` for prod |
 
 ### Local k3d
 
