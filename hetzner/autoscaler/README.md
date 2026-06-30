@@ -12,19 +12,43 @@ external cloud provider (HCCM, `hcloud://` ProviderIDs) + `teiwah-private` netwo
 | `overprovision.yaml` | Placeholder pause pods (instant headroom while a VM boots) |
 | `apply.sh` | Renders cloud-init, creates the `hcloud-autoscaler` secret, applies both |
 
-## Preference (pure config — availability handled at runtime)
+## Preference (cheapest cost-optimized CX, EU-only)
 
 ```text
-tier 1: cx23, cx33   @ nbg1 / fsn1 / hel1
-tier 2: cpx22        @ nbg1 / fsn1 / hel1
-tier 3: cpx32        @ nbg1 / fsn1 / hel1
+tier 30: cx23   (4 GB, ~€5.49/mo) — default; matches teiwah-worker
+tier 20: cx33   (8 GB, ~€8.49/mo) — if cx23 unavailable in all regions
+tier 10: cx43   (16 GB, ~€16/mo) — last resort before scale-up fails
 ```
 
 - EU-only: only `eu-central` servers can attach to `teiwah-private`.
-- If a type/region can't be created, the autoscaler backs that pool off and the priority
-  expander falls to the next tier. No availability assumptions baked in.
+- Three regions per type (nbg1 / fsn1 / hel1) — autoscaler tries all cx23 pools before cx33, etc.
+- **CPX removed** from autoscaler pools: post–June 2026 pricing (~€19/mo for 4 GB) is worse
+  value than cx43 (16 GB for ~€16).
 - `max=250`/pool ≈ uncapped. Real ceiling = your **Hetzner project server quota**
   (raise via Hetzner support as you grow).
+
+### If all pools fail (pods stay Pending)
+
+Rare in practice (needs cx23+cx33+cx43 sold out in nbg1, fsn1, and hel1, or quota hit).
+The autoscaler retries with backoff — it does not give up permanently on the first API error.
+
+**What still works without a new autoscaled node:**
+
+- Existing nodes (`teiwah-worker`, any autoscaled nodes already up) keep serving sessions.
+- Only *new* pods that don't fit anywhere stay Pending.
+
+**Manual break-glass** (same cloud-init the autoscaler uses — not a blank server):
+
+1. On your Mac or master, create `hetzner/.env` from `.env.example` (token, K3S_URL, K3S_TOKEN).
+2. Set `SERVER_TYPE=cx23` (or cx33/cx43), `LOCATION=nbg1|fsn1|hel1`, `WORKER_NAME=teiwah-manual-1`.
+3. Run `hetzner/create-test-worker.sh` — it attaches to `teiwah-private` and joins k3s via
+   `worker-cloud-init.yaml.example` (identical script baked into the autoscaler secret).
+
+The manual VM is **not** in an autoscaler pool (static like `teiwah-worker`) but works the same
+once Ready. Delete it in Hetzner when load drops if you don't want ongoing cost.
+
+**Longer term:** alert on `cluster_autoscaler_unschedulable_pods_count > 0` (Grafana) and/or
+raise Hetzner server quota before you need it.
 
 ## Deploy
 

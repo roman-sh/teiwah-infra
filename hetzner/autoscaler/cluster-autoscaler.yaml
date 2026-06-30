@@ -4,10 +4,10 @@
 # from the hcloud-autoscaler secret (see apply.sh). New nodes register as hcloud:// on
 # teiwah-private exactly like the manual proof.
 #
-# Pools are pure PREFERENCE (cx23/cx33 > cpx22 > cpx32), EU-only because only eu-central
-# can attach to teiwah-private. Availability is handled at runtime: if a type/region can't
-# be created, the autoscaler backs that node group off and the priority expander falls to
-# the next tier. max=250/pool ≈ uncapped (real ceiling = Hetzner project quota).
+# Pools: cost-optimized CX only, cheapest first (cx23 → cx33 → cx43), EU-only because only
+# eu-central can attach to teiwah-private. CPX removed — post-June 2026 pricing makes it
+# worse value than larger CX tiers. Availability: 3 regions per type before falling to next
+# tier. max=250/pool ≈ uncapped (real ceiling = Hetzner project quota).
 #
 # IMPORTANT: match the image tag to the cluster minor (kubectl version -> v1.35.x).
 ---
@@ -100,11 +100,10 @@ data:
   priorities: |-
     30:
       - ".*cx23.*"
-      - ".*cx33.*"
     20:
-      - ".*cpx22.*"
+      - ".*cx33.*"
     10:
-      - ".*cpx32.*"
+      - ".*cx43.*"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -142,21 +141,18 @@ spec:
             - --cloud-provider=hetzner
             - --expander=priority
             # min:max:instanceType:region:poolName  (max 250 ≈ uncapped)
-            # tier 1 — cx23 / cx33 (any EU location)
+            # tier 1 — cx23 (cheapest, 4 GB — matches teiwah-worker)
             - --nodes=0:250:cx23:nbg1:teiwah-cx23-nbg1
             - --nodes=0:250:cx23:fsn1:teiwah-cx23-fsn1
             - --nodes=0:250:cx23:hel1:teiwah-cx23-hel1
+            # tier 2 — cx33 (8 GB)
             - --nodes=0:250:cx33:nbg1:teiwah-cx33-nbg1
             - --nodes=0:250:cx33:fsn1:teiwah-cx33-fsn1
             - --nodes=0:250:cx33:hel1:teiwah-cx33-hel1
-            # tier 2 — cpx22 (any EU location)
-            - --nodes=0:250:cpx22:nbg1:teiwah-cpx22-nbg1
-            - --nodes=0:250:cpx22:fsn1:teiwah-cpx22-fsn1
-            - --nodes=0:250:cpx22:hel1:teiwah-cpx22-hel1
-            # tier 3 — cpx32 (any EU location)
-            - --nodes=0:250:cpx32:nbg1:teiwah-cpx32-nbg1
-            - --nodes=0:250:cpx32:fsn1:teiwah-cpx32-fsn1
-            - --nodes=0:250:cpx32:hel1:teiwah-cpx32-hel1
+            # tier 3 — cx43 (16 GB, last resort before scale-up fails)
+            - --nodes=0:250:cx43:nbg1:teiwah-cx43-nbg1
+            - --nodes=0:250:cx43:fsn1:teiwah-cx43-fsn1
+            - --nodes=0:250:cx43:hel1:teiwah-cx43-hel1
             - --scale-down-delay-after-add=10m
             - --scale-down-unneeded-time=10m
             - --scan-interval=10s

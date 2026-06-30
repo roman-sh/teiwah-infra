@@ -109,7 +109,7 @@ node kept warm ahead of demand. Setup + tuning: [hetzner/autoscaler/README.md](.
 
 - Cluster uses **external cloud provider** (HCCM) on `teiwah-private` — node config + migration
   notes in [hetzner/README.md](./hetzner/README.md#cluster-networking--external-cloud-provider--teiwah-private).
-- Preference: `cx23/cx33` → `cpx22` → `cpx32`, EU-only (`nbg1`/`fsn1`/`hel1`).
+- Preference: `cx23` → `cx33` → `cx43` (cost-optimized only), EU-only (`nbg1`/`fsn1`/`hel1`).
 
 ```bash
 ssh root@178.105.212.172
