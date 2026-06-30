@@ -84,6 +84,12 @@ New nodes appear as `teiwah-<pool>-<hash>`, `Ready`, `hcloud://...`, on `teiwah-
 
 ## Notes / gotchas
 
+- **Kubernetes 1.35+ RBAC** — the ClusterRole must include `resource.k8s.io` (`deviceclasses`,
+  `resourceclaims`, `resourceslices`). Without it the autoscaler logs RBAC forbidden spam,
+  `cluster_safe_to_autoscale` stays `0`, and overprovisioning placeholders stay Pending with
+  no new Hetzner nodes. After updating `cluster-autoscaler.yaml`, `git pull` on
+  `teiwah-master` and re-run `apply.sh` (or `kubectl apply -f cluster-autoscaler.yaml` then
+  `kubectl -n kube-system rollout restart deploy/cluster-autoscaler`).
 - Placeholder priority is `-1` (above the autoscaler's `-10` expendable cutoff) so the
   autoscaler still scales up for them; real session pods (priority 0) preempt them.
 - Existing `teiwah-master` / `teiwah-worker` are static — not in any pool, never resized.

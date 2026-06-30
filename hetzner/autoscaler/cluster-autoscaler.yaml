@@ -46,6 +46,11 @@ rules:
   - apiGroups: ["coordination.k8s.io"]
     resources: ["leases"]
     verbs: ["create", "get", "update"]
+  # Required on Kubernetes 1.35+ — without these the autoscaler main loop never
+  # becomes healthy (cluster_safe_to_autoscale stays 0, no scale-up for overprovisioning).
+  - apiGroups: ["resource.k8s.io"]
+    resources: ["deviceclasses", "resourceclaims", "resourceslices"]
+    verbs: ["get", "list", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
