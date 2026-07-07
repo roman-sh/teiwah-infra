@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Remove all session worker resources from a namespace, including per-session
-# local-path PVCs (<sessionId>-storage) that hold Baileys auth state.
+# local-path PVCs named <sessionId> that hold Baileys auth state.
 # Does NOT touch traefik-catchall (global-cors, catchall-router, empty-fallback-service).
 # Does NOT clear the DB — run DELETE FROM "Session"; separately if needed.
 #
@@ -20,10 +20,11 @@ DEPLOYMENT_IDS=$(kubectl get deployments -n "$NAMESPACE" -o jsonpath='{.items[*]
 # Orphan PVCs can remain if a deployment was removed without deleteSessionWorker.
 PVC_SESSION_IDS=$(
   kubectl get pvc -n "$NAMESPACE" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null \
-    | sed -n 's/-storage$//p' \
+    | sed 's/-storage$//' \
     | tr '\n' ' ' \
     || true
 )
+# sed above: legacy PVCs were named <sessionId>-storage; drop once old PVCs are gone.
 
 SESSION_IDS=$(printf '%s %s\n' "$DEPLOYMENT_IDS" "$PVC_SESSION_IDS" | tr ' ' '\n' | sed '/^$/d' | sort -u | tr '\n' ' ')
 
@@ -38,6 +39,8 @@ for SESSION_ID in $SESSION_IDS; do
   kubectl delete middleware "${SESSION_ID}-strip" -n "$NAMESPACE" --ignore-not-found
   kubectl delete service "$SESSION_ID" -n "$NAMESPACE" --ignore-not-found
   kubectl delete deployment "$SESSION_ID" -n "$NAMESPACE" --ignore-not-found
+  kubectl delete pvc "$SESSION_ID" -n "$NAMESPACE" --ignore-not-found
+  # Legacy PVC name (<sessionId>-storage). Remove this line once old PVCs are gone.
   kubectl delete pvc "${SESSION_ID}-storage" -n "$NAMESPACE" --ignore-not-found
 done
 
