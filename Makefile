@@ -6,6 +6,8 @@
 #   make worker-restart-all                — restart every deployment using WORKER_IMAGE
 #   make cleanup                   — delete session worker k8s resources in sandbox (dev)
 #   make cleanup NS=default        — same, but target the prod namespace
+#   make cleanup-list-refresh NS=sandbox
+#   make cleanup-selected-hard NS=sandbox SESSIONS=sandbox:session-1,sandbox:session-2
 #   make sandbox-setup             — create the sandbox (dev) namespace + its GHCR pull secret
 #   make ghcr-secret                 — create/update GHCR pull secret (needs k8s/secrets/.env)
 #   make traefik                     — helm upgrade k3s Traefik
@@ -20,6 +22,7 @@
 NAMESPACE ?= default
 NS ?=
 SESSION ?=
+SESSIONS ?=
 
 # nestwaileys → GHCR (must match teiwah-control SESSION_WORKER_IMAGE)
 NESTWAILEYS_DIR ?= ../nestwaileys
@@ -27,13 +30,20 @@ WORKER_IMAGE ?= ghcr.io/roman-sh/teiwah-worker
 WORKER_TAG ?= amd64
 WORKER_PLATFORM ?= linux/amd64
 
-.PHONY: cleanup sandbox-setup ghcr-secret traefik catchall monitoring monitoring-status \
+.PHONY: cleanup cleanup-list-refresh cleanup-selected-hard \
+	sandbox-setup ghcr-secret traefik catchall monitoring monitoring-status \
 	pods pods-watch pods-live logs sessions \
 	worker-build worker-push worker-publish worker-restart worker-restart-all
 
 # Defaults to sandbox (dev). `make cleanup NS=default` targets prod.
 cleanup:
 	bash scripts/cleanup-sessions.sh $(NS)
+
+cleanup-list-refresh:
+	bash scripts/write-session-cleanup-entities.sh $(NS)
+
+cleanup-selected-hard:
+	bash scripts/cleanup-selected-sessions-hard.sh $(NS) "$(SESSIONS)" --yes
 
 # Create the dev namespace and its GHCR pull secret in one shot.
 sandbox-setup:
