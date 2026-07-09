@@ -57,39 +57,21 @@ curl -sS http://127.0.0.1:1337/ | head
 
 Then open `https://infra.teiwah.cloud`.
 
-## Buttons
+## Buttons (v1)
 
 | Button | Runs | Args |
 |--------|------|------|
 | List pods | `make pods NAMESPACE=…` | namespace dropdown |
 | Restart all workers | `make worker-restart-all NAMESPACE=…` | namespace dropdown |
 | Sandbox setup | `make sandbox-setup` | — |
-| Refresh cleanup session list | `make cleanup-list-refresh NS=…` | namespace dropdown |
-| FULL HARD DELETE selected sessions | `make cleanup-selected-hard NS=… SESSIONS=…` | namespace dropdown + session checklist + confirm checkbox |
-
-The full cleanup button deletes the Zuplo consumer/API key, k8s resources/PVCs,
-and the `sessions` DB row. Demo sessions have no DB/Zuplo records, so those steps
-report "not found" and continue.
-
-Before using it on the server, create namespace-specific env files from
-`session-cleanup.env.example`:
-
-```bash
-mkdir -p /etc/teiwah/session-cleanup
-cp /root/teiwah-infra/olivetin/session-cleanup.env.example /etc/teiwah/session-cleanup/sandbox.env
-cp /root/teiwah-infra/olivetin/session-cleanup.env.example /etc/teiwah/session-cleanup/default.env
-```
-
-`sandbox.env` must point at the dev DB + dev Zuplo bucket and set
-`CLEANUP_NAMESPACE=sandbox`; `default.env` must point at prod and set
-`CLEANUP_NAMESPACE=default`.
+| Cleanup sessions (DESTRUCTIVE) | `make cleanup NS=…` | namespace dropdown + confirm checkbox |
 
 ## Adding / changing buttons
 
 Edit `config.yaml`, commit, `git pull` on the server. OliveTin live-reloads most
 changes; `systemctl restart OliveTin` if a change doesn't take.
 
-The panel deliberately uses only **dropdown**, generated **checklist**, and
-**confirmation** inputs (no free-text), so arguments stay constrained. If you add
-a free-text argument later (e.g. a session id for a single-pod restart), constrain
-its `type` and be aware it runs as root.
+v1 deliberately uses only **dropdown** and **confirmation** inputs (no free-text),
+so arguments can't inject shell. If you add a free-text argument later (e.g. a
+session id for a single-pod restart), constrain its `type` and be aware it runs as
+root.
