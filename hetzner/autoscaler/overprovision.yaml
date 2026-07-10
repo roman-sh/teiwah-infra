@@ -58,6 +58,6 @@ spec:
           resources:
             requests:
               cpu: 1500m        # ~claims a 2 vCPU node (cx23/cpx22) leaving room for system pods
-              memory: 3Gi       # ~claims a 4 GB node; fits allocatable with headroom
+              memory: 2Gi       # ~claims a 4 GB node; fits allocatable with headroom
             limits:
-              memory: 3Gi
+              memory: 2Gi
